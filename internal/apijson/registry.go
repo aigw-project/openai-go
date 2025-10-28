@@ -8,8 +8,10 @@ import (
 
 type UnionVariant struct {
 	TypeFilter         gjson.Type
+	TypeFilters        []gjson.Type
 	DiscriminatorValue interface{}
 	Type               reflect.Type
+	Converter          func(inner any) (v any)
 }
 
 var unionRegistry = map[reflect.Type]unionEntry{}

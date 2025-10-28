@@ -77,6 +77,7 @@ func (o *Opt[T]) UnmarshalJSON(data []byte) error {
 		o.Status = null
 		return nil
 	}
+	o.Status = included
 	return json.Unmarshal(data, &o.Value)
 }
 

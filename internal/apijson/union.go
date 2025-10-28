@@ -2,8 +2,9 @@ package apijson
 
 import (
 	"errors"
-	"github.com/openai/openai-go/packages/param"
 	"reflect"
+
+	"github.com/openai/openai-go/packages/param"
 
 	"github.com/tidwall/gjson"
 )
@@ -31,6 +32,21 @@ func RegisterDiscriminatedUnion[T any](key string, mappings map[string]reflect.T
 		})
 	}
 	unionRegistry[reflect.TypeOf(t)] = entry
+}
+
+func RegisterEmbeddedUnion[T any](variants []UnionVariant) {
+	var t T
+	entry := unionEntry{
+		variants: variants,
+	}
+	unionRegistry[reflect.TypeOf(t)] = entry
+}
+
+func setUnionValue(v reflect.Value, inner reflect.Value, converter func(any) any) {
+	if converter != nil {
+		inner = reflect.ValueOf(converter(inner.Interface()))
+	}
+	v.Set(inner)
 }
 
 func (d *decoderBuilder) newEmbeddedUnionDecoder(t reflect.Type) decoderFunc {

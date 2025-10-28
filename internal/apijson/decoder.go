@@ -86,7 +86,7 @@ func (d *decoderBuilder) unmarshal(raw []byte, to any) error {
 	if !value.IsValid() {
 		return fmt.Errorf("apijson: cannot marshal into invalid value")
 	}
-	return d.typeDecoder(value.Type())(result, value, &decoderState{strict: false, exactness: exact})
+	return d.typeDecoder(value.Type())(result, value, &decoderState{strict: true, exactness: exact})
 }
 
 func (d *decoderBuilder) typeDecoder(t reflect.Type) decoderFunc {
@@ -220,28 +220,45 @@ func (d *decoderBuilder) newUnionDecoder(t reflect.Type) decoderFunc {
 	}
 	return func(n gjson.Result, v reflect.Value, state *decoderState) error {
 		// If there is a discriminator match, circumvent the exactness logic entirely
-		for idx, variant := range unionEntry.variants {
-			decoder := decoders[idx]
-			if variant.TypeFilter != n.Type {
-				continue
-			}
+		if len(unionEntry.discriminatorKey) != 0 {
+			discriminatorValue := n.Get(unionEntry.discriminatorKey).Value()
+			for idx, variant := range unionEntry.variants {
+				decoder := decoders[idx]
+				if variant.TypeFilter != n.Type {
+					continue
+				}
 
-			if len(unionEntry.discriminatorKey) != 0 {
-				discriminatorValue := n.Get(unionEntry.discriminatorKey).Value()
 				if discriminatorValue == variant.DiscriminatorValue {
 					inner := reflect.New(variant.Type).Elem()
 					err := decoder(n, inner, state)
-					v.Set(inner)
-					return err
+					if err != nil {
+						return err
+					}
+					setUnionValue(v, inner, variant.Converter)
+					return nil
 				}
 			}
+
+			return fmt.Errorf("apijson: can not find the variant has discriminator value %s", discriminatorValue)
 		}
 
 		// Set bestExactness to worse than loose
 		bestExactness := loose - 1
 		for idx, variant := range unionEntry.variants {
 			decoder := decoders[idx]
-			if variant.TypeFilter != n.Type {
+			if len(variant.TypeFilters) != 0 {
+				found := false
+				for _, filter := range variant.TypeFilters {
+					if filter == n.Type {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					continue
+				}
+			} else if variant.TypeFilter != n.Type {
 				continue
 			}
 			sub := decoderState{strict: state.strict, exactness: exact}
@@ -251,11 +268,11 @@ func (d *decoderBuilder) newUnionDecoder(t reflect.Type) decoderFunc {
 				continue
 			}
 			if sub.exactness == exact {
-				v.Set(inner)
+				setUnionValue(v, inner, variant.Converter)
 				return nil
 			}
 			if sub.exactness > bestExactness {
-				v.Set(inner)
+				setUnionValue(v, inner, variant.Converter)
 				bestExactness = sub.exactness
 			}
 		}
@@ -406,8 +423,10 @@ func (d *decoderBuilder) newStructTypeDecoder(t reflect.Type) decoderFunc {
 		}
 
 		for _, decoder := range anonymousDecoders {
-			// ignore errors
-			decoder.fn(node, value.FieldByIndex(decoder.idx), state)
+			err = decoder.fn(node, value.FieldByIndex(decoder.idx), state)
+			if err != nil {
+				return err
+			}
 		}
 
 		for _, inlineDecoder := range inlineDecoders {
@@ -417,9 +436,10 @@ func (d *decoderBuilder) newStructTypeDecoder(t reflect.Type) decoderFunc {
 			if dest.IsValid() && node.Type != gjson.Null {
 				inlineState := decoderState{exactness: state.exactness, strict: true}
 				err = inlineDecoder.fn(node, dest, &inlineState)
-				if err == nil {
-					isValid = true
+				if err != nil {
+					return err
 				}
+				isValid = true
 			}
 
 			if node.Type == gjson.Null {
@@ -469,9 +489,10 @@ func (d *decoderBuilder) newStructTypeDecoder(t reflect.Type) decoderFunc {
 			isValid := false
 			if dest.IsValid() && itemNode.Type != gjson.Null {
 				err = fn(itemNode, dest, state)
-				if err == nil {
-					isValid = true
+				if err != nil {
+					return err
 				}
+				isValid = true
 			}
 
 			if itemNode.Type == gjson.Null {

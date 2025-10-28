@@ -54,6 +54,8 @@ type FunctionCallOutput string                      // Always "function_call_out
 type Image string                                   // Always "image"
 type ImageFile string                               // Always "image_file"
 type ImageURL string                                // Always "image_url"
+type VideoURL string                                // Always "video_url"
+type AudioURL string                                // Always "audio_url"
 type InputAudio string                              // Always "input_audio"
 type InputFile string                               // Always "input_file"
 type InputImage string                              // Always "input_image"
@@ -201,6 +203,7 @@ func (c FunctionCallOutput) Default() FunctionCallOutput { return "function_call
 func (c Image) Default() Image                           { return "image" }
 func (c ImageFile) Default() ImageFile                   { return "image_file" }
 func (c ImageURL) Default() ImageURL                     { return "image_url" }
+func (c AudioURL) Default() AudioURL                     { return "audio_url" }
 func (c InputAudio) Default() InputAudio                 { return "input_audio" }
 func (c InputFile) Default() InputFile                   { return "input_file" }
 func (c InputImage) Default() InputImage                 { return "input_image" }
@@ -398,6 +401,7 @@ func (c FunctionCallOutput) MarshalJSON() ([]byte, error)                    { r
 func (c Image) MarshalJSON() ([]byte, error)                                 { return marshalString(c) }
 func (c ImageFile) MarshalJSON() ([]byte, error)                             { return marshalString(c) }
 func (c ImageURL) MarshalJSON() ([]byte, error)                              { return marshalString(c) }
+func (c AudioURL) MarshalJSON() ([]byte, error)                              { return marshalString(c) }
 func (c InputAudio) MarshalJSON() ([]byte, error)                            { return marshalString(c) }
 func (c InputFile) MarshalJSON() ([]byte, error)                             { return marshalString(c) }
 func (c InputImage) MarshalJSON() ([]byte, error)                            { return marshalString(c) }
